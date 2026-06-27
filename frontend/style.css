@@ -63,7 +63,27 @@ button:hover {
   z-index: 0;
 }
 
-/* Critical Leaflet rules in case the CDN stylesheet is blocked or stale. */
+/*
+ * Critical Leaflet positioning fallback.
+ *
+ * The full Leaflet stylesheet is loaded from the CDN in index.html. These rules are
+ * intentionally duplicated here because, when that CDN stylesheet is blocked or
+ * delayed, Leaflet tiles otherwise fall back into normal document/page positioning
+ * and the map turns into detached 256px squares. Because apparently one missing
+ * `position: relative` is all it takes to make geography look like cubism.
+ */
+.leaflet-container {
+  position: relative;
+  overflow: hidden;
+  outline-style: none;
+  background: #ddd;
+}
+
+.leaflet-container,
+.leaflet-container * {
+  box-sizing: content-box;
+}
+
 .leaflet-pane,
 .leaflet-tile,
 .leaflet-marker-icon,
@@ -79,8 +99,18 @@ button:hover {
   left: 0;
 }
 
-.leaflet-container {
-  overflow: hidden;
+.leaflet-map-pane,
+.leaflet-tile-pane,
+.leaflet-overlay-pane,
+.leaflet-shadow-pane,
+.leaflet-marker-pane,
+.leaflet-tooltip-pane,
+.leaflet-popup-pane {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .leaflet-container .leaflet-marker-pane img,
@@ -128,6 +158,52 @@ button:hover {
 
 .leaflet-popup-pane {
   z-index: 700;
+}
+
+.leaflet-control {
+  position: relative;
+  z-index: 800;
+  pointer-events: visiblePainted;
+  pointer-events: auto;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  position: absolute;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.leaflet-top {
+  top: 0;
+}
+
+.leaflet-right {
+  right: 0;
+}
+
+.leaflet-bottom {
+  bottom: 0;
+}
+
+.leaflet-left {
+  left: 0;
+}
+
+.leaflet-top .leaflet-control {
+  margin-top: 10px;
+}
+
+.leaflet-bottom .leaflet-control {
+  margin-bottom: 10px;
+}
+
+.leaflet-left .leaflet-control {
+  margin-left: 10px;
+}
+
+.leaflet-right .leaflet-control {
+  margin-right: 10px;
 }
 
 .panel {
