@@ -46,7 +46,17 @@ def test_create_and_list_weed_observations(client: TestClient) -> None:
             "confidence": 0.8,
             "coverage_percent": 35,
             "density_class": "medium",
+            "status": "monitor",
+            "plant_family": "Amaranthaceae",
+            "height_cm": 14,
             "growth_stage": "seedling",
+            "is_flowering": False,
+            "is_seeding": False,
+            "moisture_class": "normal",
+            "disturbance_class": "bare_soil",
+            "light_class": "full_sun",
+            "soil_exposure_percent": 30,
+            "tags": ["edge", "annual"],
             "latitude": 42.6581,
             "longitude": 23.2852,
         },
@@ -56,12 +66,22 @@ def test_create_and_list_weed_observations(client: TestClient) -> None:
     observation = response.json()
     assert observation["field_id"] == field["id"]
     assert observation["workspace_id"] == 1
+    assert observation["status"] == "monitor"
+    assert observation["plant_family"] == "Amaranthaceae"
+    assert observation["height_cm"] == 14
+    assert observation["is_flowering"] is False
+    assert observation["moisture_class"] == "normal"
+    assert observation["disturbance_class"] == "bare_soil"
+    assert observation["light_class"] == "full_sun"
+    assert observation["soil_exposure_percent"] == 30
+    assert observation["tags"] == ["edge", "annual"]
 
     list_response = client.get(f"/fields/{field['id']}/weed-observations")
     assert list_response.status_code == 200
     observations = list_response.json()
     assert len(observations) == 1
     assert observations[0]["species"] == "Chenopodium album"
+    assert observations[0]["tags"] == ["edge", "annual"]
 
 
 def test_prediction_shape_and_rule_behavior(client: TestClient) -> None:
@@ -129,6 +149,15 @@ def test_default_workspace_and_geojson(client: TestClient) -> None:
             "confidence": 0.7,
             "coverage_percent": 8,
             "density_class": "low",
+            "status": "beneficial",
+            "plant_family": "Fabaceae",
+            "growth_stage": "flowering",
+            "is_flowering": True,
+            "moisture_class": "moist",
+            "disturbance_class": "footpath_edge",
+            "light_class": "partial_shade",
+            "soil_exposure_percent": 5,
+            "tags": ["legume", "pollinator"],
             "latitude": 42.6581,
             "longitude": 23.2852,
         },
@@ -138,9 +167,19 @@ def test_default_workspace_and_geojson(client: TestClient) -> None:
     assert geojson_response.status_code == 200
     feature_collection = geojson_response.json()
     assert feature_collection["type"] == "FeatureCollection"
-    assert feature_collection["features"][0]["type"] == "Feature"
-    assert feature_collection["features"][0]["geometry"]["type"] == "Point"
-    assert feature_collection["features"][0]["properties"]["species"] == "Trifolium repens"
+    feature = feature_collection["features"][0]
+    assert feature["type"] == "Feature"
+    assert feature["geometry"]["type"] == "Point"
+    assert feature["properties"]["species"] == "Trifolium repens"
+    assert feature["properties"]["status"] == "beneficial"
+    assert feature["properties"]["plant_family"] == "Fabaceae"
+    assert feature["properties"]["growth_stage"] == "flowering"
+    assert feature["properties"]["is_flowering"] is True
+    assert feature["properties"]["moisture_class"] == "moist"
+    assert feature["properties"]["disturbance_class"] == "footpath_edge"
+    assert feature["properties"]["light_class"] == "partial_shade"
+    assert feature["properties"]["soil_exposure_percent"] == 5
+    assert feature["properties"]["tags"] == ["legume", "pollinator"]
 
 
 def test_seeded_layers_and_layer_geojson(client: TestClient) -> None:
@@ -174,6 +213,17 @@ def test_workspace_observation_with_photos_in_geojson(client: TestClient) -> Non
             "confidence": 0.95,
             "coverage_percent": 80,
             "density_class": "high",
+            "status": "aggressive",
+            "plant_family": "Urticaceae",
+            "height_cm": 80,
+            "growth_stage": "flowering",
+            "is_flowering": True,
+            "is_seeding": False,
+            "moisture_class": "moist",
+            "disturbance_class": "footpath_edge",
+            "light_class": "partial_shade",
+            "soil_exposure_percent": 0,
+            "tags": ["nettle", "edge_patch"],
             "geometry_geojson": (
                 '{"type":"Polygon","coordinates":[[[23.284,42.658],'
                 "[23.285,42.658],[23.285,42.659],[23.284,42.659],[23.284,42.658]]]}"
@@ -192,6 +242,8 @@ def test_workspace_observation_with_photos_in_geojson(client: TestClient) -> Non
     assert response.status_code == 201
     observation = response.json()
     assert observation["photos"][0]["url"] == "https://example.com/nettle.jpg"
+    assert observation["status"] == "aggressive"
+    assert observation["tags"] == ["nettle", "edge_patch"]
 
     geojson_response = client.get("/map/workspaces/1/observations.geojson")
     assert geojson_response.status_code == 200
@@ -200,6 +252,8 @@ def test_workspace_observation_with_photos_in_geojson(client: TestClient) -> Non
     assert feature["properties"]["photos"][0]["thumbnail_url"] == (
         "https://example.com/nettle-thumb.jpg"
     )
+    assert feature["properties"]["status"] == "aggressive"
+    assert feature["properties"]["tags"] == ["nettle", "edge_patch"]
 
 
 def test_frontend_index_served(client: TestClient) -> None:
