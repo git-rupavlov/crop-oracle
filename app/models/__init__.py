@@ -1,3 +1,19 @@
-from app.models.domain import Field, MapWorkspace, PredictionRun, WeedObservation, WeedPrediction
+from app.models.domain import (
+    Field,
+    MapLayer,
+    MapWorkspace,
+    ObservationPhoto,
+    PredictionRun,
+    WeedObservation,
+    WeedPrediction,
+)
 
-__all__ = ["Field", "MapWorkspace", "PredictionRun", "WeedObservation", "WeedPrediction"]
+__all__ = [
+    "Field",
+    "MapLayer",
+    "MapWorkspace",
+    "ObservationPhoto",
+    "PredictionRun",
+    "WeedObservation",
+    "WeedPrediction",
+]
