@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime
 
 from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, func
@@ -75,8 +76,18 @@ class WeedObservation(Base):
     confidence: Mapped[float | None] = mapped_column(Float)
     coverage_percent: Mapped[float | None] = mapped_column(Float)
     density_class: Mapped[str | None] = mapped_column(String(40))
+    status: Mapped[str | None] = mapped_column(String(40))
+    plant_family: Mapped[str | None] = mapped_column(String(120))
     average_height_cm: Mapped[float | None] = mapped_column(Float)
+    height_cm: Mapped[float | None] = mapped_column(Float)
     growth_stage: Mapped[str | None] = mapped_column(String(80))
+    is_flowering: Mapped[bool | None] = mapped_column(Boolean)
+    is_seeding: Mapped[bool | None] = mapped_column(Boolean)
+    moisture_class: Mapped[str | None] = mapped_column(String(40))
+    disturbance_class: Mapped[str | None] = mapped_column(String(80))
+    light_class: Mapped[str | None] = mapped_column(String(40))
+    soil_exposure_percent: Mapped[float | None] = mapped_column(Float)
+    tags_json: Mapped[str | None] = mapped_column(Text)
     crop_nearby: Mapped[str | None] = mapped_column(String(120))
     photo_reference: Mapped[str | None] = mapped_column(String(300))
     latitude: Mapped[float | None] = mapped_column(Float)
@@ -90,6 +101,18 @@ class WeedObservation(Base):
     photos: Mapped[list["ObservationPhoto"]] = relationship(
         back_populates="observation", cascade="all, delete-orphan"
     )
+
+    @property
+    def tags(self) -> list[str]:
+        if not self.tags_json:
+            return []
+        try:
+            value = json.loads(self.tags_json)
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(value, list):
+            return []
+        return [str(item) for item in value]
 
 
 class ObservationPhoto(Base):
