@@ -3,11 +3,19 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
-from app.models import MapWorkspace, WeedObservation
-from app.schemas.domain import GeoJSONFeatureCollection, MapWorkspaceCreate, MapWorkspaceRead
+from app.models import MapLayer, MapWorkspace, ObservationPhoto, WeedObservation
+from app.schemas.domain import (
+    GeoJSONFeatureCollection,
+    MapLayerCreate,
+    MapLayerRead,
+    MapWorkspaceCreate,
+    MapWorkspaceRead,
+    WeedObservationCreate,
+    WeedObservationRead,
+)
 
 router = APIRouter(prefix="/map", tags=["map"])
 
@@ -34,6 +42,63 @@ def get_workspace(workspace_id: int, db: Session = Depends(get_db)) -> MapWorksp
     return workspace
 
 
+def _get_workspace_or_404(db: Session, workspace_id: int) -> MapWorkspace:
+    workspace = db.get(MapWorkspace, workspace_id)
+    if workspace is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found")
+    return workspace
+
+
+@router.post(
+    "/workspaces/{workspace_id}/observations",
+    response_model=WeedObservationRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_workspace_observation(
+    workspace_id: int,
+    payload: WeedObservationCreate,
+    db: Session = Depends(get_db),
+) -> WeedObservation:
+    _get_workspace_or_404(db, workspace_id)
+    observation_data = payload.model_dump()
+    photos = observation_data.pop("photos", [])
+    observation_data.pop("workspace_id", None)
+    observation = WeedObservation(
+        **observation_data,
+        workspace_id=workspace_id,
+    )
+    observation.photos = [ObservationPhoto(**photo) for photo in photos]
+    db.add(observation)
+    db.commit()
+    db.refresh(observation)
+    return observation
+
+
+@router.get("/workspaces/{workspace_id}/layers", response_model=list[MapLayerRead])
+def list_layers(workspace_id: int, db: Session = Depends(get_db)) -> list[MapLayer]:
+    _get_workspace_or_404(db, workspace_id)
+    statement = select(MapLayer).where(MapLayer.workspace_id == workspace_id).order_by(MapLayer.id)
+    return list(db.scalars(statement))
+
+
+@router.post(
+    "/workspaces/{workspace_id}/layers",
+    response_model=MapLayerRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_layer(
+    workspace_id: int,
+    payload: MapLayerCreate,
+    db: Session = Depends(get_db),
+) -> MapLayer:
+    _get_workspace_or_404(db, workspace_id)
+    layer = MapLayer(workspace_id=workspace_id, **payload.model_dump())
+    db.add(layer)
+    db.commit()
+    db.refresh(layer)
+    return layer
+
+
 def _observation_geometry(observation: WeedObservation) -> dict[str, Any] | None:
     if observation.geometry_geojson:
         try:
@@ -54,6 +119,62 @@ def _observation_geometry(observation: WeedObservation) -> dict[str, Any] | None
     return None
 
 
+def _observation_feature(observation: WeedObservation) -> dict[str, Any] | None:
+    geometry = _observation_geometry(observation)
+    if geometry is None:
+        return None
+    photos = [
+        {
+            "id": photo.id,
+            "url": photo.url,
+            "thumbnail_url": photo.thumbnail_url,
+            "taken_at": photo.taken_at.isoformat() if photo.taken_at else None,
+            "notes": photo.notes,
+        }
+        for photo in observation.photos
+    ]
+    if observation.photo_reference and not photos:
+        photos.append(
+            {
+                "id": None,
+                "url": observation.photo_reference,
+                "thumbnail_url": observation.photo_reference,
+                "taken_at": None,
+                "notes": None,
+            }
+        )
+    return {
+        "type": "Feature",
+        "geometry": geometry,
+        "properties": {
+            "id": observation.id,
+            "field_id": observation.field_id,
+            "species": observation.species,
+            "observed_at": observation.observed_at.isoformat(),
+            "confidence": observation.confidence,
+            "coverage_percent": observation.coverage_percent,
+            "density_class": observation.density_class,
+            "growth_stage": observation.growth_stage,
+            "photo_reference": observation.photo_reference,
+            "photos": photos,
+            "notes": observation.notes,
+        },
+    }
+
+
+def _empty_layer_geojson(layer: MapLayer) -> dict[str, Any]:
+    return {
+        "type": "FeatureCollection",
+        "features": [],
+        "properties": {
+            "layer_id": layer.id,
+            "layer_type": layer.layer_type,
+            "name": layer.name,
+            "status": "placeholder",
+        },
+    }
+
+
 @router.get(
     "/workspaces/{workspace_id}/observations.geojson", response_model=GeoJSONFeatureCollection
 )
@@ -67,30 +188,32 @@ def workspace_observations_geojson(
 
     observations = db.scalars(
         select(WeedObservation)
+        .options(selectinload(WeedObservation.photos))
         .where(WeedObservation.workspace_id == workspace_id)
         .order_by(WeedObservation.observed_at.desc(), WeedObservation.id.desc())
     )
     features = []
     for observation in observations:
-        geometry = _observation_geometry(observation)
-        if geometry is None:
-            continue
-        features.append(
-            {
-                "type": "Feature",
-                "geometry": geometry,
-                "properties": {
-                    "id": observation.id,
-                    "field_id": observation.field_id,
-                    "species": observation.species,
-                    "observed_at": observation.observed_at.isoformat(),
-                    "confidence": observation.confidence,
-                    "coverage_percent": observation.coverage_percent,
-                    "density_class": observation.density_class,
-                    "growth_stage": observation.growth_stage,
-                    "notes": observation.notes,
-                },
-            }
-        )
+        feature = _observation_feature(observation)
+        if feature:
+            features.append(feature)
 
     return {"type": "FeatureCollection", "features": features}
+
+
+@router.get(
+    "/workspaces/{workspace_id}/layers/{layer_id}/geojson",
+    response_model=GeoJSONFeatureCollection,
+)
+def layer_geojson(
+    workspace_id: int,
+    layer_id: int,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _get_workspace_or_404(db, workspace_id)
+    layer = db.get(MapLayer, layer_id)
+    if layer is None or layer.workspace_id != workspace_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Layer not found")
+    if layer.layer_type == "observations":
+        return workspace_observations_geojson(workspace_id, db)
+    return _empty_layer_geojson(layer)
