@@ -74,7 +74,17 @@ curl -X POST http://127.0.0.1:8000/fields/1/weed-observations \
     "confidence": 0.8,
     "coverage_percent": 35,
     "density_class": "medium",
+    "status": "monitor",
+    "plant_family": "Amaranthaceae",
+    "height_cm": 14,
     "growth_stage": "seedling",
+    "is_flowering": false,
+    "is_seeding": false,
+    "moisture_class": "normal",
+    "disturbance_class": "bare_soil",
+    "light_class": "full_sun",
+    "soil_exposure_percent": 30,
+    "tags": ["edge", "annual"],
     "latitude": 42.6581,
     "longitude": 23.2852
   }'
@@ -111,6 +121,17 @@ curl -X POST http://127.0.0.1:8000/map/workspaces/1/observations \
     "confidence": 0.95,
     "coverage_percent": 80,
     "density_class": "high",
+    "status": "aggressive",
+    "plant_family": "Urticaceae",
+    "height_cm": 80,
+    "growth_stage": "flowering",
+    "is_flowering": true,
+    "is_seeding": false,
+    "moisture_class": "moist",
+    "disturbance_class": "footpath_edge",
+    "light_class": "partial_shade",
+    "soil_exposure_percent": 0,
+    "tags": ["nettle", "edge_patch"],
     "geometry_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[23.284,42.658],[23.285,42.658],[23.285,42.659],[23.284,42.659],[23.284,42.658]]]}",
     "notes": "Large nettle patch",
     "photos": [
@@ -167,6 +188,23 @@ Implemented map behavior:
 - client-generated weed-pressure heatmap
 - client-generated 25 m grid overlay with species richness, weed density, last visit, and predicted emergence placeholder
 
+## Observation Fields
+
+Extended observation data now supports:
+
+- status: `beneficial`, `neutral`, `monitor`, `aggressive`, or `unknown`
+- plant family
+- height in centimeters
+- growth stage
+- flowering and seeding flags
+- moisture class
+- disturbance class
+- light class
+- soil exposure percent
+- tags as a list, stored internally as SQLite-compatible JSON text
+
+The frontend form does not expose all of these fields yet. The API and GeoJSON export already support them, because naturally the backend has learned new words before the UI has learned where to put them.
+
 ## Map And GeoJSON Notes
 
 The app seeds one default map workspace:
@@ -202,13 +240,24 @@ Example GeoJSON response:
       "properties": {
         "species": "Chenopodium album",
         "density_class": "medium",
+        "status": "monitor",
         "coverage_percent": 35,
+        "moisture_class": "normal",
+        "disturbance_class": "bare_soil",
+        "light_class": "full_sun",
+        "tags": ["edge", "annual"],
         "photos": []
       }
     }
   ]
 }
 ```
+
+## Prototype Database Notes
+
+SQLite `create_all()` does not alter existing tables. The app includes a small SQLite-only schema guard for the newly added observation fields so existing local prototype databases can continue to run without manual deletion.
+
+This is not a replacement for real migrations. Use Alembic before treating this as anything more serious than a living prototype held together by good intentions and SQL strings.
 
 ## Known Limitations
 
@@ -218,9 +267,12 @@ Example GeoJSON response:
 - Terrain, moisture, disturbance, experiment plot, and walking path layers are placeholders until imported data exists.
 - The heatmap and grid are client-generated from observation GeoJSON.
 - Weather, soil, crop history, DEM, NDVI, and terrain models are not implemented yet.
+- The frontend form does not yet expose every extended observation field.
 
 ## Next Steps
 
+- Add the extended observation fields to the frontend form.
+- Add client-side filters for species, status, density, growth stage, and confidence.
 - Add crop season and soil observation endpoints.
 - Add field-level prediction GeoJSON.
 - Import environmental layers: DEM, slope, aspect, soil, weather, land cover, NDVI, paths, streams, and canopy.
