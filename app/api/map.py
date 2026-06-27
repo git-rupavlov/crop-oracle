@@ -49,6 +49,14 @@ def _get_workspace_or_404(db: Session, workspace_id: int) -> MapWorkspace:
     return workspace
 
 
+def _dump_observation_payload(payload: WeedObservationCreate) -> tuple[dict, list[dict]]:
+    observation_data = payload.model_dump()
+    photos = observation_data.pop("photos", [])
+    tags = observation_data.pop("tags", [])
+    observation_data["tags_json"] = json.dumps(tags) if tags else None
+    return observation_data, photos
+
+
 @router.post(
     "/workspaces/{workspace_id}/observations",
     response_model=WeedObservationRead,
@@ -60,8 +68,7 @@ def create_workspace_observation(
     db: Session = Depends(get_db),
 ) -> WeedObservation:
     _get_workspace_or_404(db, workspace_id)
-    observation_data = payload.model_dump()
-    photos = observation_data.pop("photos", [])
+    observation_data, photos = _dump_observation_payload(payload)
     observation_data.pop("workspace_id", None)
     observation = WeedObservation(
         **observation_data,
@@ -154,7 +161,18 @@ def _observation_feature(observation: WeedObservation) -> dict[str, Any] | None:
             "confidence": observation.confidence,
             "coverage_percent": observation.coverage_percent,
             "density_class": observation.density_class,
+            "status": observation.status,
+            "plant_family": observation.plant_family,
+            "average_height_cm": observation.average_height_cm,
+            "height_cm": observation.height_cm,
             "growth_stage": observation.growth_stage,
+            "is_flowering": observation.is_flowering,
+            "is_seeding": observation.is_seeding,
+            "moisture_class": observation.moisture_class,
+            "disturbance_class": observation.disturbance_class,
+            "light_class": observation.light_class,
+            "soil_exposure_percent": observation.soil_exposure_percent,
+            "tags": observation.tags,
             "photo_reference": observation.photo_reference,
             "photos": photos,
             "notes": observation.notes,
