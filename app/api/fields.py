@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -22,6 +24,14 @@ def _get_field_or_404(db: Session, field_id: int) -> Field:
     if field is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Field not found")
     return field
+
+
+def _dump_observation_payload(payload: WeedObservationCreate) -> tuple[dict, list[dict]]:
+    observation_data = payload.model_dump()
+    photos = observation_data.pop("photos", [])
+    tags = observation_data.pop("tags", [])
+    observation_data["tags_json"] = json.dumps(tags) if tags else None
+    return observation_data, photos
 
 
 @router.post("", response_model=FieldRead, status_code=status.HTTP_201_CREATED)
@@ -54,15 +64,11 @@ def create_weed_observation(
     db: Session = Depends(get_db),
 ) -> WeedObservation:
     field = _get_field_or_404(db, field_id)
-    observation_data = payload.model_dump()
-    photos = observation_data.pop("photos", [])
+    observation_data, photos = _dump_observation_payload(payload)
     observation_data["workspace_id"] = (
         payload.workspace_id if payload.workspace_id is not None else field.workspace_id
     )
-    observation = WeedObservation(
-        **observation_data,
-        field_id=field.id,
-    )
+    observation = WeedObservation(**observation_data, field_id=field.id)
     observation.photos = [ObservationPhoto(**photo) for photo in photos]
     db.add(observation)
     db.commit()
