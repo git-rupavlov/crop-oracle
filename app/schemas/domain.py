@@ -7,6 +7,28 @@ from pydantic import BaseModel, ConfigDict, Field
 DensityClass = Literal["low", "medium", "high"]
 RiskClass = Literal["low", "medium", "high"]
 Recommendation = Literal["tolerate", "monitor", "suppress"]
+ObservationStatus = Literal["beneficial", "neutral", "monitor", "aggressive", "unknown"]
+GrowthStage = Literal[
+    "seedling",
+    "vegetative",
+    "flowering",
+    "seeding",
+    "senescent",
+    "dry_residue",
+    "unknown",
+]
+MoistureClass = Literal["dry", "normal", "moist", "wet", "unknown"]
+DisturbanceClass = Literal[
+    "undisturbed",
+    "footpath_edge",
+    "mowed",
+    "dug",
+    "dumped_material",
+    "construction_edge",
+    "bare_soil",
+    "unknown",
+]
+LightClass = Literal["full_sun", "partial_shade", "shade", "unknown"]
 
 
 class FieldBase(BaseModel):
@@ -40,14 +62,24 @@ class WeedObservationBase(BaseModel):
     confidence: float | None = Field(default=None, ge=0, le=1)
     coverage_percent: float | None = Field(default=None, ge=0, le=100)
     density_class: DensityClass | None = None
+    status: ObservationStatus | None = None
+    plant_family: str | None = Field(default=None, max_length=120)
     average_height_cm: float | None = Field(default=None, ge=0)
-    growth_stage: str | None = Field(default=None, max_length=80)
+    height_cm: float | None = Field(default=None, ge=0)
+    growth_stage: GrowthStage | None = None
+    is_flowering: bool | None = None
+    is_seeding: bool | None = None
+    moisture_class: MoistureClass | None = None
+    disturbance_class: DisturbanceClass | None = None
+    light_class: LightClass | None = None
+    soil_exposure_percent: float | None = Field(default=None, ge=0, le=100)
     crop_nearby: str | None = Field(default=None, max_length=120)
     photo_reference: str | None = Field(default=None, max_length=300)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     geometry_geojson: str | None = None
     notes: str | None = None
+    tags: list[str] = Field(default_factory=list)
 
 
 class ObservationPhotoBase(BaseModel):
