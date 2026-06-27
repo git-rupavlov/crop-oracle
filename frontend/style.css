@@ -10,6 +10,7 @@
   --neutral: #f2c94c;
   --monitor: #f08c00;
   --aggressive: #d9480f;
+  --unknown: #4263eb;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -63,15 +64,6 @@ button:hover {
   z-index: 0;
 }
 
-/*
- * Critical Leaflet positioning fallback.
- *
- * The full Leaflet stylesheet is loaded from the CDN in index.html. These rules are
- * intentionally duplicated here because, when that CDN stylesheet is blocked or
- * delayed, Leaflet tiles otherwise fall back into normal document/page positioning
- * and the map turns into detached 256px squares. Because apparently one missing
- * `position: relative` is all it takes to make geography look like cubism.
- */
 .leaflet-container {
   position: relative;
   overflow: hidden;
@@ -356,8 +348,12 @@ button:hover {
   background: var(--aggressive);
 }
 
+.unknown {
+  background: var(--unknown);
+}
+
 .observation-popup {
-  min-width: 220px;
+  min-width: 260px;
 }
 
 .observation-popup h3 {
@@ -395,7 +391,9 @@ button:hover {
 }
 
 #observationDialog {
-  width: min(520px, calc(100vw - 24px));
+  width: min(620px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0;
@@ -425,6 +423,23 @@ button:hover {
   font-size: 1.25rem;
 }
 
+#observationForm fieldset {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+#observationForm legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 #observationForm label {
   display: grid;
   gap: 6px;
@@ -446,6 +461,22 @@ button:hover {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.checkbox-row label {
+  display: flex !important;
+  align-items: center;
+  gap: 7px !important;
+}
+
+.checkbox-row input {
+  width: auto !important;
 }
 
 #observationForm footer button {
@@ -476,5 +507,9 @@ button:hover {
     border-left: 0;
     border-top: 1px solid var(--line);
     box-shadow: 0 -10px 24px rgb(31 42 36 / 10%);
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
   }
 }
