@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 from sqlalchemy.orm import Session
 
 from app.models import MapLayer, MapWorkspace
@@ -63,6 +63,36 @@ DEFAULT_LAYERS = [
     },
 ]
 
+SQLITE_OBSERVATION_COLUMNS = {
+    "status": "VARCHAR(40)",
+    "plant_family": "VARCHAR(120)",
+    "height_cm": "FLOAT",
+    "is_flowering": "BOOLEAN",
+    "is_seeding": "BOOLEAN",
+    "moisture_class": "VARCHAR(40)",
+    "disturbance_class": "VARCHAR(80)",
+    "light_class": "VARCHAR(40)",
+    "soil_exposure_percent": "FLOAT",
+    "tags_json": "TEXT",
+}
+
+
+def ensure_sqlite_observation_columns(db: Session) -> None:
+    bind = db.get_bind()
+    if bind.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(bind)
+    if "weed_observations" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("weed_observations")}
+    for column_name, column_type in SQLITE_OBSERVATION_COLUMNS.items():
+        if column_name in existing_columns:
+            continue
+        db.execute(text(f"ALTER TABLE weed_observations ADD COLUMN {column_name} {column_type}"))
+    db.commit()
+
 
 def seed_default_workspace(db: Session) -> None:
     existing = db.scalar(select(MapWorkspace).where(MapWorkspace.name == "Park Vartopo"))
@@ -106,5 +136,6 @@ def seed_default_layers(db: Session) -> None:
 
 
 def init_db(db: Session) -> None:
+    ensure_sqlite_observation_columns(db)
     seed_default_workspace(db)
     seed_default_layers(db)
