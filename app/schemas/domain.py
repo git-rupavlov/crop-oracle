@@ -50,14 +50,33 @@ class WeedObservationBase(BaseModel):
     notes: str | None = None
 
 
-class WeedObservationCreate(WeedObservationBase):
+class ObservationPhotoBase(BaseModel):
+    url: str = Field(min_length=1, max_length=500)
+    thumbnail_url: str | None = Field(default=None, max_length=500)
+    taken_at: datetime | None = None
+    notes: str | None = None
+
+
+class ObservationPhotoCreate(ObservationPhotoBase):
     pass
+
+
+class ObservationPhotoRead(ObservationPhotoBase):
+    id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WeedObservationCreate(WeedObservationBase):
+    photos: list[ObservationPhotoCreate] = Field(default_factory=list)
 
 
 class WeedObservationRead(WeedObservationBase):
     id: int
     field_id: int | None
     created_at: datetime
+    photos: list[ObservationPhotoRead] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -116,6 +135,29 @@ class MapWorkspaceCreate(MapWorkspaceBase):
 
 class MapWorkspaceRead(MapWorkspaceBase):
     id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MapLayerBase(BaseModel):
+    field_id: int | None = None
+    name: str = Field(min_length=1, max_length=160)
+    layer_type: str = Field(min_length=1, max_length=80)
+    geometry_type: str = Field(min_length=1, max_length=80)
+    source_type: str = Field(default="generated", min_length=1, max_length=80)
+    style_json: str | None = None
+    visible_by_default: bool = True
+    notes: str | None = None
+
+
+class MapLayerCreate(MapLayerBase):
+    pass
+
+
+class MapLayerRead(MapLayerBase):
+    id: int
+    workspace_id: int
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
