@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
-from app.models import Field, PredictionRun, WeedObservation
+from app.models import Field, ObservationPhoto, PredictionRun, WeedObservation
 from app.schemas.domain import (
     FieldCreate,
     FieldRead,
@@ -55,6 +55,7 @@ def create_weed_observation(
 ) -> WeedObservation:
     field = _get_field_or_404(db, field_id)
     observation_data = payload.model_dump()
+    photos = observation_data.pop("photos", [])
     observation_data["workspace_id"] = (
         payload.workspace_id if payload.workspace_id is not None else field.workspace_id
     )
@@ -62,6 +63,7 @@ def create_weed_observation(
         **observation_data,
         field_id=field.id,
     )
+    observation.photos = [ObservationPhoto(**photo) for photo in photos]
     db.add(observation)
     db.commit()
     db.refresh(observation)
@@ -73,6 +75,7 @@ def list_weed_observations(field_id: int, db: Session = Depends(get_db)) -> list
     _get_field_or_404(db, field_id)
     statement = (
         select(WeedObservation)
+        .options(selectinload(WeedObservation.photos))
         .where(WeedObservation.field_id == field_id)
         .order_by(WeedObservation.observed_at.desc(), WeedObservation.id.desc())
     )
