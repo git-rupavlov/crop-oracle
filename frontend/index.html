@@ -4,20 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Crop Oracle</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIINfQJd9UwG+gD/Z9aN7aRvW8i5m9A23ZM="
-      crossorigin=""
-    />
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
-    />
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
-    />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
     <link rel="stylesheet" href="/style.css" />
   </head>
@@ -58,6 +47,7 @@
             <div><dt class="swatch neutral"></dt><dd>Neutral</dd></div>
             <div><dt class="swatch monitor"></dt><dd>Monitor</dd></div>
             <div><dt class="swatch aggressive"></dt><dd>Aggressive</dd></div>
+            <div><dt class="swatch unknown"></dt><dd>Unknown</dd></div>
           </dl>
         </section>
       </aside>
@@ -69,51 +59,113 @@
             <button id="cancelObservation" type="button" aria-label="Close">×</button>
           </header>
 
-          <label>
-            Species
-            <input name="species" required placeholder="Urtica dioica" />
-          </label>
-
-          <div class="form-grid">
+          <fieldset>
+            <legend>Core</legend>
             <label>
-              Coverage
-              <input name="coverage_percent" type="number" min="0" max="100" step="1" value="50" />
+              Species or label
+              <input name="species" required placeholder="unknown grass" />
             </label>
-            <label>
-              Confidence
-              <input name="confidence" type="number" min="0" max="100" step="1" value="80" />
-            </label>
-          </div>
+            <div class="form-grid">
+              <label>Date<input name="observed_at" type="date" required /></label>
+              <label>
+                Status
+                <select name="status">
+                  <option value="unknown" selected>Unknown</option>
+                  <option value="beneficial">Beneficial</option>
+                  <option value="neutral">Neutral</option>
+                  <option value="monitor">Monitor</option>
+                  <option value="aggressive">Aggressive</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-grid">
+              <label>Coverage<input name="coverage_percent" type="number" min="0" max="100" step="1" value="50" /></label>
+              <label>Confidence<input name="confidence" type="number" min="0" max="100" step="1" value="80" /></label>
+            </div>
+            <div class="form-grid">
+              <label>
+                Density
+                <select name="density_class">
+                  <option value="low">Low</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
+              <label>
+                Growth stage
+                <select name="growth_stage">
+                  <option value="unknown" selected>Unknown</option>
+                  <option value="seedling">Seedling</option>
+                  <option value="vegetative">Vegetative</option>
+                  <option value="flowering">Flowering</option>
+                  <option value="seeding">Seeding</option>
+                  <option value="senescent">Senescent</option>
+                  <option value="dry_residue">Dry residue</option>
+                </select>
+              </label>
+            </div>
+          </fieldset>
 
-          <div class="form-grid">
-            <label>
-              Density
-              <select name="density_class">
-                <option value="low">Low</option>
-                <option value="medium" selected>Medium</option>
-                <option value="high">High</option>
-              </select>
-            </label>
-            <label>
-              Date
-              <input name="observed_at" type="date" required />
-            </label>
-          </div>
+          <fieldset>
+            <legend>Plant</legend>
+            <div class="form-grid">
+              <label>Plant family<input name="plant_family" placeholder="Fabaceae" /></label>
+              <label>Height cm<input name="height_cm" type="number" min="0" step="1" placeholder="30" /></label>
+            </div>
+            <div class="checkbox-row">
+              <label><input name="is_flowering" type="checkbox" /> Flowering</label>
+              <label><input name="is_seeding" type="checkbox" /> Seeding</label>
+            </div>
+          </fieldset>
 
-          <label>
-            Photo
-            <input name="photo_url" type="url" placeholder="https://example.com/photo.jpg" />
-          </label>
+          <fieldset>
+            <legend>Environment</legend>
+            <div class="form-grid">
+              <label>
+                Moisture
+                <select name="moisture_class">
+                  <option value="unknown" selected>Unknown</option>
+                  <option value="dry">Dry</option>
+                  <option value="normal">Normal</option>
+                  <option value="moist">Moist</option>
+                  <option value="wet">Wet</option>
+                </select>
+              </label>
+              <label>
+                Light
+                <select name="light_class">
+                  <option value="unknown" selected>Unknown</option>
+                  <option value="full_sun">Full sun</option>
+                  <option value="partial_shade">Partial shade</option>
+                  <option value="shade">Shade</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-grid">
+              <label>
+                Disturbance
+                <select name="disturbance_class">
+                  <option value="unknown" selected>Unknown</option>
+                  <option value="undisturbed">Undisturbed</option>
+                  <option value="footpath_edge">Footpath edge</option>
+                  <option value="mowed">Mowed</option>
+                  <option value="dug">Dug</option>
+                  <option value="dumped_material">Dumped material</option>
+                  <option value="construction_edge">Construction edge</option>
+                  <option value="bare_soil">Bare soil</option>
+                </select>
+              </label>
+              <label>Soil exposure %<input name="soil_exposure_percent" type="number" min="0" max="100" step="1" placeholder="0" /></label>
+            </div>
+          </fieldset>
 
-          <label>
-            Thumbnail
-            <input name="thumbnail_url" type="url" placeholder="https://example.com/thumb.jpg" />
-          </label>
-
-          <label>
-            Notes
-            <textarea name="notes" rows="3" placeholder="Large nettle patch"></textarea>
-          </label>
+          <fieldset>
+            <legend>Notes and media</legend>
+            <label>Tags<input name="tags" placeholder="edge, legume, wet-zone" /></label>
+            <label>Photo<input name="photo_url" type="url" placeholder="https://example.com/photo.jpg" /></label>
+            <label>Thumbnail<input name="thumbnail_url" type="url" placeholder="https://example.com/thumb.jpg" /></label>
+            <label>Notes<textarea name="notes" rows="3" placeholder="Large patch"></textarea></label>
+          </fieldset>
 
           <footer>
             <button type="submit">Save</button>
@@ -122,11 +174,7 @@
       </dialog>
     </main>
 
-    <script
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-      crossorigin=""
-    ></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
