@@ -12,6 +12,7 @@ const familyColors = {
   fabaceae: "#2f9e44",
   asteraceae: "#fab005",
   amaranthaceae: "#f08c00",
+  urticaceae: "#d9480f",
   default: "#4263eb",
 };
 
@@ -20,6 +21,7 @@ const statusColors = {
   neutral: "#f2c94c",
   monitor: "#f08c00",
   aggressive: "#d9480f",
+  unknown: "#4263eb",
 };
 
 let observations = { type: "FeatureCollection", features: [] };
@@ -52,7 +54,7 @@ const disturbanceLayer = L.layerGroup();
 const experimentLayer = L.layerGroup();
 const pathsLayer = L.layerGroup();
 const gridLayer = L.layerGroup();
-let heatLayer = L.heatLayer([], {
+const heatLayer = L.heatLayer([], {
   radius: 28,
   blur: 18,
   maxZoom: 18,
@@ -138,10 +140,7 @@ timeSlider.addEventListener("input", () => {
 map.on(L.Draw.Event.CREATED, (event) => {
   pendingLayer = event.layer;
   form.reset();
-  form.elements.observed_at.value = new Date().toISOString().slice(0, 10);
-  form.elements.coverage_percent.value = 50;
-  form.elements.confidence.value = 80;
-  form.elements.density_class.value = "medium";
+  setDefaultFormValues();
   dialog.showModal();
 });
 
@@ -169,6 +168,18 @@ form.addEventListener("submit", async (event) => {
   await loadObservations();
 });
 
+function setDefaultFormValues() {
+  form.elements.observed_at.value = new Date().toISOString().slice(0, 10);
+  form.elements.coverage_percent.value = 50;
+  form.elements.confidence.value = 80;
+  form.elements.density_class.value = "medium";
+  form.elements.status.value = "unknown";
+  form.elements.growth_stage.value = "unknown";
+  form.elements.moisture_class.value = "unknown";
+  form.elements.disturbance_class.value = "unknown";
+  form.elements.light_class.value = "unknown";
+}
+
 function observationPayloadFromForm(formData, layer) {
   const feature = layer.toGeoJSON();
   const photoUrl = String(formData.get("photo_url") || "").trim();
@@ -188,10 +199,21 @@ function observationPayloadFromForm(formData, layer) {
     observed_at: formData.get("observed_at"),
     species: formData.get("species"),
     confidence: Math.min(Math.max(confidencePercent / 100, 0), 1),
-    coverage_percent: Number(formData.get("coverage_percent") || 0),
-    density_class: formData.get("density_class"),
+    coverage_percent: optionalNumber(formData.get("coverage_percent")),
+    density_class: emptyToNull(formData.get("density_class")),
+    status: emptyToNull(formData.get("status")),
+    plant_family: emptyToNull(formData.get("plant_family")),
+    height_cm: optionalNumber(formData.get("height_cm")),
+    growth_stage: emptyToNull(formData.get("growth_stage")),
+    is_flowering: Boolean(formData.get("is_flowering")),
+    is_seeding: Boolean(formData.get("is_seeding")),
+    moisture_class: emptyToNull(formData.get("moisture_class")),
+    disturbance_class: emptyToNull(formData.get("disturbance_class")),
+    light_class: emptyToNull(formData.get("light_class")),
+    soil_exposure_percent: optionalNumber(formData.get("soil_exposure_percent")),
+    tags: parseTags(formData.get("tags")),
     geometry_geojson: JSON.stringify(feature.geometry),
-    notes: formData.get("notes") || null,
+    notes: emptyToNull(formData.get("notes")),
     photos,
   };
 
@@ -201,6 +223,23 @@ function observationPayloadFromForm(formData, layer) {
   }
 
   return payload;
+}
+
+function optionalNumber(value) {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  return Number(value);
+}
+
+function emptyToNull(value) {
+  const text = String(value || "").trim();
+  return text ? text : null;
+}
+
+function parseTags(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 async function loadAll() {
@@ -371,7 +410,7 @@ function renderPredictionLayer() {
         radius: 35 + coverage * 2.2,
         color: "#d9480f",
         weight: 1,
-        fillColor: "#f08c00",
+        fillColor: colorForFeature(feature),
         fillOpacity: Math.min(coverage / 160, 0.45),
       }).bindPopup(`Weed pressure ${Math.round(coverage)} / 100`);
     })
@@ -465,15 +504,27 @@ function popupHtml(feature) {
         <img class="popup-photo" src="${escapeAttribute(photo.thumbnail_url || photo.url)}" alt="" />
       </a>`
     : "";
+  const tags = Array.isArray(properties.tags) && properties.tags.length ? properties.tags.join(", ") : "None";
 
   return `
     <div class="observation-popup">
       ${image}
       <h3>${escapeHtml(properties.species || "Unknown species")}</h3>
       <dl>
+        <dt>Status</dt><dd>${formatValue(properties.status)}</dd>
         <dt>Coverage</dt><dd>${formatPercent(properties.coverage_percent)}</dd>
-        <dt>Density</dt><dd>${escapeHtml(properties.density_class || "Unknown")}</dd>
+        <dt>Density</dt><dd>${formatValue(properties.density_class)}</dd>
         <dt>Confidence</dt><dd>${formatConfidence(properties.confidence)}</dd>
+        <dt>Growth</dt><dd>${formatValue(properties.growth_stage)}</dd>
+        <dt>Family</dt><dd>${formatValue(properties.plant_family)}</dd>
+        <dt>Height</dt><dd>${formatHeight(properties.height_cm || properties.average_height_cm)}</dd>
+        <dt>Flowering</dt><dd>${formatBool(properties.is_flowering)}</dd>
+        <dt>Seeding</dt><dd>${formatBool(properties.is_seeding)}</dd>
+        <dt>Moisture</dt><dd>${formatValue(properties.moisture_class)}</dd>
+        <dt>Disturbance</dt><dd>${formatValue(properties.disturbance_class)}</dd>
+        <dt>Light</dt><dd>${formatValue(properties.light_class)}</dd>
+        <dt>Soil exposed</dt><dd>${formatPercent(properties.soil_exposure_percent)}</dd>
+        <dt>Tags</dt><dd>${escapeHtml(tags)}</dd>
         <dt>Photo</dt><dd>${photos.length || (properties.photo_reference ? 1 : 0)}</dd>
         <dt>Notes</dt><dd>${escapeHtml(properties.notes || "None")}</dd>
         <dt>Date</dt><dd>${escapeHtml(properties.observed_at || "Unknown")}</dd>
@@ -494,12 +545,16 @@ function featureCenter(feature) {
 
 function colorForFeature(feature) {
   if (colorMode === "family") {
-    return familyColor(feature.properties?.species || "");
+    return familyColor(feature.properties?.plant_family || feature.properties?.species || "");
   }
   return statusColor(feature);
 }
 
 function statusColor(feature) {
+  const explicitStatus = feature.properties?.status;
+  if (explicitStatus && statusColors[explicitStatus]) {
+    return statusColors[explicitStatus];
+  }
   const species = String(feature.properties?.species || "").toLowerCase();
   const coverage = Number(feature.properties?.coverage_percent || 0);
   const density = feature.properties?.density_class;
@@ -512,22 +567,25 @@ function statusColor(feature) {
   if (coverage >= 20 || density === "medium") {
     return statusColors.monitor;
   }
-  return statusColors.neutral;
+  return statusColors.unknown;
 }
 
-function familyColor(species) {
-  const value = species.toLowerCase();
-  if (value.includes("poa") || value.includes("lolium") || value.includes("grass")) {
+function familyColor(value) {
+  const text = value.toLowerCase();
+  if (text.includes("poa") || text.includes("lolium") || text.includes("grass")) {
     return familyColors.poaceae;
   }
-  if (value.includes("trifolium") || value.includes("vicia") || value.includes("clover")) {
+  if (text.includes("fabaceae") || text.includes("trifolium") || text.includes("vicia") || text.includes("clover")) {
     return familyColors.fabaceae;
   }
-  if (value.includes("taraxacum") || value.includes("cirsium") || value.includes("aster")) {
+  if (text.includes("asteraceae") || text.includes("taraxacum") || text.includes("cirsium")) {
     return familyColors.asteraceae;
   }
-  if (value.includes("amaranthus") || value.includes("chenopodium")) {
+  if (text.includes("amaranthaceae") || text.includes("amaranthus") || text.includes("chenopodium")) {
     return familyColors.amaranthaceae;
+  }
+  if (text.includes("urticaceae") || text.includes("urtica")) {
+    return familyColors.urticaceae;
   }
   return familyColors.default;
 }
@@ -540,6 +598,21 @@ function formatPercent(value) {
 function formatConfidence(value) {
   if (value === null || value === undefined) return "Unknown";
   return `${Math.round(Number(value) * 100)}%`;
+}
+
+function formatHeight(value) {
+  if (value === null || value === undefined) return "Unknown";
+  return `${Math.round(Number(value))} cm`;
+}
+
+function formatBool(value) {
+  if (value === null || value === undefined) return "Unknown";
+  return value ? "Yes" : "No";
+}
+
+function formatValue(value) {
+  if (value === null || value === undefined || value === "") return "Unknown";
+  return escapeHtml(String(value).replaceAll("_", " "));
 }
 
 function formatMonthLabel(month) {
