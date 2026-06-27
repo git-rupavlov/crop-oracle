@@ -12,6 +12,8 @@ Build **Crop Oracle**, an application for predicting weed species and weed press
 
 Primary goal: improve crop planning and support coexistence between crops and useful or non-damaging weeds. The app should help decide which weeds can remain, which should be controlled, and when intervention matters.
 
+The first real-world pilot area is **park Vartopo / Vartopo field area in Sofia, Bulgaria**. Treat this as the initial observation and visualization area, not as a private farm field.
+
 ## Product direction
 This is not a herbicide-first application. Treat weeds as field indicators and ecological actors, not only as enemies.
 
@@ -23,6 +25,124 @@ The application should answer questions like:
 - Which weeds are likely to compete strongly with the planned crop?
 - Which weeds may be tolerated as living mulch, erosion control, pollinator support, or soil indicators?
 - Which observations should be collected next to improve predictions?
+- How do observations, terrain, moisture, soil, paths, and predicted weed pressure look together on a map?
+
+## Map-first visualization direction
+Crop Oracle should become a map-based observation and planning tool.
+
+The map is not decoration. It is the primary way to understand the data.
+
+Start with **park Vartopo** as the first map workspace. The app should support public/natural area observations first, then later crop plots, balcony beds, greenhouse beds, and future farm fields.
+
+### Map goals
+The map should allow layered visualization of:
+
+- field or park boundary
+- observation points
+- weed species observations
+- plant coverage percent
+- density class
+- growth stage
+- observation confidence
+- terrain slope/aspect/elevation
+- moisture or wet-zone indicators
+- paths, disturbed areas, edges, and unmanaged zones
+- crop/experiment zones, when relevant
+- predicted weed pressure grid
+- coexistence recommendation: tolerate, monitor, suppress
+
+### Frontend map stack
+When a frontend is introduced, prefer:
+
+- Leaflet for the first simple implementation
+- MapLibre GL if vector tiles, heavier styling, or larger spatial datasets become necessary
+- OpenStreetMap as the default basemap
+- GeoJSON as the first interchange format
+
+Do not introduce a heavy GIS server in the first version. Start with API-generated GeoJSON and a simple browser map. Humanity already invented enough infrastructure-shaped suffering.
+
+### Map layer model
+Add a `MapLayer` concept when needed.
+
+Suggested fields:
+
+- id
+- field_id, optional
+- name
+- layer_type
+- geometry_type
+- source_type
+- style_json
+- visible_by_default
+- created_at
+- notes
+
+Useful layer types:
+
+- boundary
+- observation_points
+- weed_species
+- density
+- coverage
+- terrain
+- moisture
+- disturbance
+- prediction_grid
+- coexistence
+
+### Spatial data format
+For the SQLite prototype:
+
+- store geometry as GeoJSON text
+- use WGS84 coordinates, EPSG:4326
+- keep exact private coordinates optional
+- allow approximate coordinates or hand-drawn areas
+
+For PostgreSQL/PostGIS later:
+
+- use proper geometry columns
+- add spatial indexes
+- support bounding-box queries
+- support field-cell grid generation
+
+### Map API expectations
+Add these endpoints when the core backend exists:
+
+```text
+GET    /map/workspaces
+POST   /map/workspaces
+GET    /map/workspaces/{workspace_id}
+GET    /map/workspaces/{workspace_id}/layers
+POST   /map/workspaces/{workspace_id}/layers
+GET    /map/workspaces/{workspace_id}/layers/{layer_id}/geojson
+GET    /fields/{field_id}/map/observations.geojson
+GET    /fields/{field_id}/map/predictions.geojson
+GET    /fields/{field_id}/map/cells.geojson
+```
+
+The first map workspace should be seeded as:
+
+```text
+name: Park Vartopo
+location_label: Sofia, Bulgaria
+workspace_type: public_observation_area
+notes: First pilot area for weed, terrain, moisture, disturbance, and plant coexistence observations.
+```
+
+Use approximate public-area geometry unless exact boundaries are intentionally added later.
+
+### First map UI behavior
+When the frontend exists, implement:
+
+- map centered around park Vartopo
+- layer toggle panel
+- clickable observation markers
+- popup with species, date, coverage, density, confidence, notes
+- color/style by density or recommendation
+- simple legend
+- GeoJSON export
+
+Do not start with satellite processing, vector tiles, advanced routing, or drone-data dreams. First show the observations on a map. Then earn complexity.
 
 ## Behavior rules for coding agents
 - Plan before coding.
@@ -33,7 +153,7 @@ The application should answer questions like:
 - Never commit secrets, API keys, tokens, private addresses, or precise private land coordinates.
 - Keep code readable and boring. Boring code survives longer than clever code, because humans keep maintaining software for some reason.
 - Add tests when adding behavior.
-- Update documentation when changing commands, setup, schema, or public APIs.
+- Update documentation when changing commands, setup, schema, public APIs, or map behavior.
 
 ## Initial tech stack
 Use this stack unless there is a clear reason to change it:
@@ -46,11 +166,14 @@ Use this stack unless there is a clear reason to change it:
 - PostgreSQL + PostGIS as the later production target
 - Pandas / GeoPandas for data handling when needed
 - scikit-learn for the first ML models
+- Leaflet for the first map frontend
+- OpenStreetMap basemap
+- GeoJSON for spatial API responses
 - Docker Compose for local development once the backend skeleton exists
 - pytest for tests
 - ruff for linting and formatting
 
-Do not start with a frontend. Build API and data model first.
+Start API and data model first. Add a very small map frontend only after the core observation API exists.
 
 ## Architecture preference
 Start as a modular monolith:
@@ -66,6 +189,9 @@ crop-oracle/
     schemas/
     services/
     ml/
+    map/
+  frontend/
+    # only when map UI is introduced
   tests/
   scripts/
   docs/
@@ -76,17 +202,52 @@ Avoid microservices until the application has real usage and actual scaling pain
 ## Core domain entities
 Implement these concepts gradually:
 
+### MapWorkspace
+A spatial workspace for a field, park, balcony, greenhouse, or experimental area.
+
+Suggested fields:
+
+- id
+- name
+- workspace_type
+- location_label
+- center_latitude, optional
+- center_longitude, optional
+- default_zoom
+- boundary_geojson, optional
+- notes
+- created_at
+
+### MapLayer
+A user-visible map layer.
+
+Suggested fields:
+
+- id
+- workspace_id
+- field_id, optional
+- name
+- layer_type
+- geometry_type
+- source_type
+- style_json
+- visible_by_default
+- notes
+- created_at
+
 ### Field
 A registered field, plot, balcony bed, greenhouse bed, or experimental area.
 
 Suggested fields:
 
 - id
+- workspace_id, optional
 - name
 - description
 - location label
 - approximate latitude/longitude, optional
 - area square meters, optional
+- boundary_geojson, optional
 - notes
 - created_at
 
@@ -98,7 +259,7 @@ Suggested fields:
 - id
 - field_id
 - cell_code
-- geometry, later PostGIS
+- geometry_geojson
 - slope
 - aspect
 - elevation
@@ -106,7 +267,7 @@ Suggested fields:
 - soil_texture
 - notes
 
-For SQLite prototype, geometry can be stored as GeoJSON text.
+For SQLite prototype, geometry should be stored as GeoJSON text.
 
 ### CropSeason
 A crop plan or crop history entry.
@@ -128,7 +289,8 @@ A field observation of weeds.
 Suggested fields:
 
 - id
-- field_id
+- workspace_id, optional
+- field_id, optional
 - field_cell_id, optional
 - observed_at
 - species
@@ -141,7 +303,10 @@ Suggested fields:
 - photo_reference
 - latitude, optional
 - longitude, optional
+- geometry_geojson, optional
 - notes
+
+A weed observation may be a point, polygon, or rough area. Do not force every observation to be a perfect GPS point.
 
 ### WeatherDaily
 Daily weather data used as features.
@@ -177,6 +342,9 @@ Suggested fields:
 - texture
 - compaction
 - drainage
+- latitude, optional
+- longitude, optional
+- geometry_geojson, optional
 - notes
 
 ### PredictionRun
@@ -225,6 +393,17 @@ POST   /fields/{field_id}/weed-observations
 GET    /fields/{field_id}/weed-observations
 POST   /fields/{field_id}/predict
 GET    /fields/{field_id}/predictions/latest
+```
+
+Map-capable first version, after basic CRUD:
+
+```text
+POST   /map/workspaces
+GET    /map/workspaces
+GET    /map/workspaces/{workspace_id}
+GET    /map/workspaces/{workspace_id}/observations.geojson
+GET    /map/workspaces/{workspace_id}/layers
+GET    /map/workspaces/{workspace_id}/layers/{layer_id}/geojson
 ```
 
 Later:
@@ -304,10 +483,12 @@ A weed may be recommended as **suppress** when:
 - Prefer structured fields plus free-text notes.
 - Avoid requiring perfect GIS data for the first version.
 - Keep units metric.
+- Allow rough hand-drawn polygons and approximate map points.
 
 ## Security and privacy
 - Do not commit precise private coordinates by default.
 - Use approximate location labels unless the user explicitly chooses exact coordinates.
+- Public park observations may use approximate or public map coordinates.
 - Keep API keys in environment variables.
 - Add `.env` to `.gitignore` when environment files are introduced.
 
@@ -320,6 +501,8 @@ Add tests for:
 - prediction output shape
 - rule-based prediction behavior
 - validation errors
+- GeoJSON response validity
+- map workspace creation and listing
 
 Use pytest.
 
@@ -347,6 +530,8 @@ Maintain `README.md` with:
 - run commands
 - test commands
 - API examples
+- map/layer explanation
+- GeoJSON examples
 - known limitations
 - next steps
 
@@ -362,10 +547,28 @@ Start with:
 3. SQLite for local development
 4. CRUD for fields and weed observations
 5. Simple rule-based prediction endpoint
-6. README with run instructions
-7. Basic tests
+6. Seed a default map workspace named Park Vartopo
+7. Add GeoJSON output for observations
+8. README with run instructions
+9. Basic tests
 
 Do not add frontend yet.
+```
+
+## Second Codex task recommendation
+After the backend exists, implement the first minimal map UI:
+
+```text
+Read AGENTS.md. Add a minimal Leaflet frontend for Crop Oracle.
+
+Requirements:
+1. Show OpenStreetMap basemap.
+2. Center the map on Park Vartopo, Sofia.
+3. Load observations from the GeoJSON endpoint.
+4. Show layer toggles for observations and prediction grid.
+5. Show popups for weed observations.
+6. Add a simple legend for density and coexistence recommendation.
+7. Keep the frontend small and boring.
 ```
 
 ## Completion report format
