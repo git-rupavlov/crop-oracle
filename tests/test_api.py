@@ -141,3 +141,69 @@ def test_default_workspace_and_geojson(client: TestClient) -> None:
     assert feature_collection["features"][0]["type"] == "Feature"
     assert feature_collection["features"][0]["geometry"]["type"] == "Point"
     assert feature_collection["features"][0]["properties"]["species"] == "Trifolium repens"
+
+
+def test_seeded_layers_and_layer_geojson(client: TestClient) -> None:
+    response = client.get("/map/workspaces/1/layers")
+
+    assert response.status_code == 200
+    layers = response.json()
+    layer_names = {layer["name"] for layer in layers}
+    assert {
+        "Observations",
+        "Predicted weeds",
+        "Terrain",
+        "Moisture",
+        "Disturbance",
+        "Experiment plots",
+        "Walking paths",
+    }.issubset(layer_names)
+
+    observations_layer = next(layer for layer in layers if layer["layer_type"] == "observations")
+    geojson_response = client.get(f"/map/workspaces/1/layers/{observations_layer['id']}/geojson")
+    assert geojson_response.status_code == 200
+    assert geojson_response.json()["type"] == "FeatureCollection"
+
+
+def test_workspace_observation_with_photos_in_geojson(client: TestClient) -> None:
+    response = client.post(
+        "/map/workspaces/1/observations",
+        json={
+            "observed_at": "2026-06-15",
+            "species": "Urtica dioica",
+            "confidence": 0.95,
+            "coverage_percent": 80,
+            "density_class": "high",
+            "geometry_geojson": (
+                '{"type":"Polygon","coordinates":[[[23.284,42.658],'
+                "[23.285,42.658],[23.285,42.659],[23.284,42.659],[23.284,42.658]]]}"
+            ),
+            "notes": "Large nettle patch",
+            "photos": [
+                {
+                    "url": "https://example.com/nettle.jpg",
+                    "thumbnail_url": "https://example.com/nettle-thumb.jpg",
+                    "taken_at": "2026-06-15T09:30:00",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 201
+    observation = response.json()
+    assert observation["photos"][0]["url"] == "https://example.com/nettle.jpg"
+
+    geojson_response = client.get("/map/workspaces/1/observations.geojson")
+    assert geojson_response.status_code == 200
+    feature = geojson_response.json()["features"][0]
+    assert feature["geometry"]["type"] == "Polygon"
+    assert feature["properties"]["photos"][0]["thumbnail_url"] == (
+        "https://example.com/nettle-thumb.jpg"
+    )
+
+
+def test_frontend_index_served(client: TestClient) -> None:
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Crop Oracle" in response.text
