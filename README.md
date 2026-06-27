@@ -1,8 +1,8 @@
 # Crop Oracle
 
-Crop Oracle is a map-first backend for recording weed observations and producing simple weed-pressure predictions. The first pilot workspace is Park Vartopo in Sofia, Bulgaria, with public-area observations treated as rough ecological field notes rather than precise private farm coordinates.
+Crop Oracle is a map-first tool for recording weed observations and producing simple weed-pressure predictions. The first pilot workspace is Park Vartopo in Sofia, Bulgaria, with public-area observations treated as rough ecological field notes rather than precise private farm coordinates.
 
-This first version intentionally has no frontend. It provides a FastAPI API, SQLAlchemy models, SQLite local storage, CRUD for fields and weed observations, a rule-based prediction endpoint, seeded map workspace data, and GeoJSON output for observations.
+The current version provides a FastAPI API, SQLAlchemy models, SQLite local storage, CRUD for fields and weed observations, a rule-based prediction endpoint, seeded map workspace data, GeoJSON output for layers, and a Leaflet map UI.
 
 ## Local Setup
 
@@ -21,6 +21,12 @@ uvicorn app.main:app --reload
 ```
 
 The API will be available at `http://127.0.0.1:8000`.
+
+The map UI is served at:
+
+```text
+http://127.0.0.1:8000/
+```
 
 Interactive docs:
 
@@ -94,6 +100,29 @@ Fetch observation GeoJSON for the default Park Vartopo workspace:
 curl http://127.0.0.1:8000/map/workspaces/1/observations.geojson
 ```
 
+Create a drawn workspace observation with a photo:
+
+```bash
+curl -X POST http://127.0.0.1:8000/map/workspaces/1/observations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "observed_at": "2026-06-15",
+    "species": "Urtica dioica",
+    "confidence": 0.95,
+    "coverage_percent": 80,
+    "density_class": "high",
+    "geometry_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[23.284,42.658],[23.285,42.658],[23.285,42.659],[23.284,42.659],[23.284,42.658]]]}",
+    "notes": "Large nettle patch",
+    "photos": [
+      {
+        "url": "https://example.com/nettle.jpg",
+        "thumbnail_url": "https://example.com/nettle-thumb.jpg",
+        "taken_at": "2026-06-15T09:30:00"
+      }
+    ]
+  }'
+```
+
 ## Implemented Endpoints
 
 - `GET /health`
@@ -107,7 +136,36 @@ curl http://127.0.0.1:8000/map/workspaces/1/observations.geojson
 - `POST /map/workspaces`
 - `GET /map/workspaces`
 - `GET /map/workspaces/{workspace_id}`
+- `POST /map/workspaces/{workspace_id}/observations`
 - `GET /map/workspaces/{workspace_id}/observations.geojson`
+- `GET /map/workspaces/{workspace_id}/layers`
+- `POST /map/workspaces/{workspace_id}/layers`
+- `GET /map/workspaces/{workspace_id}/layers/{layer_id}/geojson`
+
+## Frontend
+
+The frontend lives in `frontend/`:
+
+```text
+frontend/
+  index.html
+  app.js
+  style.css
+```
+
+It uses Leaflet with OpenStreetMap, marker clustering, Leaflet.Draw, and a heatmap plugin. The first screen is the Park Vartopo map.
+
+Implemented map behavior:
+
+- clustered weed observation markers and drawn geometries
+- popups with species, coverage, density, confidence, photo count, notes, and date
+- initial layer toggles for observations, predicted weeds, terrain, moisture, disturbance, experiment plots, walking paths, grid, and heatmap
+- drawing tools for points, polygons, rectangles, and lines
+- workspace observation form with optional photo URL, thumbnail URL, timestamp, and notes
+- status and family coloring modes
+- month-based time slider
+- client-generated weed-pressure heatmap
+- client-generated 25 m grid overlay with species richness, weed density, last visit, and predicted emergence placeholder
 
 ## Map And GeoJSON Notes
 
@@ -120,6 +178,14 @@ workspace_type: public_observation_area
 ```
 
 Geometry is stored as GeoJSON text for the SQLite prototype. Weed observations may use approximate `latitude` and `longitude`, rough `geometry_geojson`, or no coordinates at all. The GeoJSON endpoint returns only observations with usable geometry.
+
+Everything map-visible should move through the same layer path over time:
+
+```text
+MapLayer -> GeoJSON endpoint -> frontend renderer
+```
+
+Current environmental layers are seeded as layer records, but most return empty GeoJSON until real sources are imported. This keeps observations, predictions, soil samples, weather stations, photos, experiment plots, walking routes, and future rasters aligned behind one map-layer model.
 
 Example GeoJSON response:
 
@@ -136,7 +202,8 @@ Example GeoJSON response:
       "properties": {
         "species": "Chenopodium album",
         "density_class": "medium",
-        "coverage_percent": 35
+        "coverage_percent": 35,
+        "photos": []
       }
     }
   ]
@@ -148,12 +215,13 @@ Example GeoJSON response:
 - Predictions are rule-based and only use stored observations plus request context.
 - There is no authentication yet.
 - SQLite stores geometry as plain GeoJSON text; PostGIS is a later target.
-- No frontend has been added.
-- Weather, soil, crop history, and terrain models are not implemented yet.
+- Terrain, moisture, disturbance, experiment plot, and walking path layers are placeholders until imported data exists.
+- The heatmap and grid are client-generated from observation GeoJSON.
+- Weather, soil, crop history, DEM, NDVI, and terrain models are not implemented yet.
 
 ## Next Steps
 
 - Add crop season and soil observation endpoints.
-- Add map layer models and layer GeoJSON endpoints.
 - Add field-level prediction GeoJSON.
-- Introduce a small Leaflet frontend after the backend API is stable.
+- Import environmental layers: DEM, slope, aspect, soil, weather, land cover, NDVI, paths, streams, and canopy.
+- Persist generated grid cells server-side for modeling.
