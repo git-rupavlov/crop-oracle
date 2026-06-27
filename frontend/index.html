@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Crop Oracle</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIINfQJd9UwG+gD/Z9aN7aRvW8i5m9A23ZM="
+      crossorigin=""
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
+    />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section id="map" aria-label="Crop Oracle map"></section>
+
+      <aside class="panel" aria-label="Map controls">
+        <header class="panel-header">
+          <div>
+            <h1>Crop Oracle</h1>
+            <p id="workspaceLabel">Park Vartopo</p>
+          </div>
+          <button id="refreshButton" type="button">Refresh</button>
+        </header>
+
+        <section class="panel-section">
+          <h2>Layers</h2>
+          <div id="layerList" class="layer-list"></div>
+        </section>
+
+        <section class="panel-section">
+          <h2>Time</h2>
+          <div class="time-row">
+            <input id="timeSlider" type="range" min="0" max="0" value="0" />
+            <output id="timeLabel" for="timeSlider">All dates</output>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2>Color</h2>
+          <div class="segmented" role="group" aria-label="Species coloring mode">
+            <button class="active" type="button" data-color-mode="status">Status</button>
+            <button type="button" data-color-mode="family">Family</button>
+          </div>
+          <dl class="legend">
+            <div><dt class="swatch beneficial"></dt><dd>Beneficial</dd></div>
+            <div><dt class="swatch neutral"></dt><dd>Neutral</dd></div>
+            <div><dt class="swatch monitor"></dt><dd>Monitor</dd></div>
+            <div><dt class="swatch aggressive"></dt><dd>Aggressive</dd></div>
+          </dl>
+        </section>
+      </aside>
+
+      <dialog id="observationDialog">
+        <form id="observationForm" method="dialog">
+          <header>
+            <h2>Observation</h2>
+            <button id="cancelObservation" type="button" aria-label="Close">×</button>
+          </header>
+
+          <label>
+            Species
+            <input name="species" required placeholder="Urtica dioica" />
+          </label>
+
+          <div class="form-grid">
+            <label>
+              Coverage
+              <input name="coverage_percent" type="number" min="0" max="100" step="1" value="50" />
+            </label>
+            <label>
+              Confidence
+              <input name="confidence" type="number" min="0" max="100" step="1" value="80" />
+            </label>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              Density
+              <select name="density_class">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+            <label>
+              Date
+              <input name="observed_at" type="date" required />
+            </label>
+          </div>
+
+          <label>
+            Photo
+            <input name="photo_url" type="url" placeholder="https://example.com/photo.jpg" />
+          </label>
+
+          <label>
+            Thumbnail
+            <input name="thumbnail_url" type="url" placeholder="https://example.com/thumb.jpg" />
+          </label>
+
+          <label>
+            Notes
+            <textarea name="notes" rows="3" placeholder="Large nettle patch"></textarea>
+          </label>
+
+          <footer>
+            <button type="submit">Save</button>
+          </footer>
+        </form>
+      </dialog>
+    </main>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
