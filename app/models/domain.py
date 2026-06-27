@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
@@ -22,6 +22,25 @@ class MapWorkspace(Base):
 
     fields: Mapped[list["Field"]] = relationship(back_populates="workspace")
     observations: Mapped[list["WeedObservation"]] = relationship(back_populates="workspace")
+    layers: Mapped[list["MapLayer"]] = relationship(back_populates="workspace")
+
+
+class MapLayer(Base):
+    __tablename__ = "map_layers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("map_workspaces.id"), nullable=False)
+    field_id: Mapped[int | None] = mapped_column(ForeignKey("fields.id"))
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    layer_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    geometry_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(80), nullable=False, default="generated")
+    style_json: Mapped[str | None] = mapped_column(Text)
+    visible_by_default: Mapped[bool] = mapped_column(Boolean, default=True)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    workspace: Mapped[MapWorkspace] = relationship(back_populates="layers")
 
 
 class Field(Base):
@@ -68,6 +87,23 @@ class WeedObservation(Base):
 
     workspace: Mapped[MapWorkspace | None] = relationship(back_populates="observations")
     field: Mapped[Field | None] = relationship(back_populates="observations")
+    photos: Mapped[list["ObservationPhoto"]] = relationship(
+        back_populates="observation", cascade="all, delete-orphan"
+    )
+
+
+class ObservationPhoto(Base):
+    __tablename__ = "observation_photos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    observation_id: Mapped[int] = mapped_column(ForeignKey("weed_observations.id"), nullable=False)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    thumbnail_url: Mapped[str | None] = mapped_column(String(500))
+    taken_at: Mapped[datetime | None] = mapped_column(DateTime)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    observation: Mapped[WeedObservation] = relationship(back_populates="photos")
 
 
 class PredictionRun(Base):
